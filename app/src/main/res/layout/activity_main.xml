@@ -19,7 +19,13 @@
         android:id="@+id/button"
         android:layout_width="120dp"
         android:layout_height="wrap_content"
-        android:text="Hello Noam!" />
+        android:text=" click!" />
+
+    <Button
+        android:id="@+id/button2"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:text="Enter!" />
 
     <EditText
         android:id="@+id/inputText"

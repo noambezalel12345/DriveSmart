@@ -1,6 +1,7 @@
 package com.example.drivesmart;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -25,11 +26,19 @@ public class MainActivity extends AppCompatActivity {
         Button button = findViewById(R.id.button);
         EditText input = findViewById(R.id.inputText);
         TextView output = findViewById(R.id.outputText);
+        Button button2 = findViewById(R.id.button2);
+
 
         button.setOnClickListener(v -> {
            output.setText(input.getText());
         });
 
+        button2.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, SecondActivity.class);
+            startActivity(intent);
+
+
+        });
     }
 }
 
