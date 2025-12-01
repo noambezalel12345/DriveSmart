@@ -8,19 +8,23 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
+
+import com.google.firebase.auth.FirebaseAuth;
 
 public class SignupActivity extends AppCompatActivity {
 
     EditText emailInput, passwordInput, confirmPasswordInput;
     Button signupBtn;
 
+    private FirebaseAuth auth;  // ← Firebase Authentication
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
+
+        // אתחול Firebase
+        auth = FirebaseAuth.getInstance();
 
         emailInput = findViewById(R.id.emailInput);
         passwordInput = findViewById(R.id.passwordInput);
@@ -31,6 +35,7 @@ public class SignupActivity extends AppCompatActivity {
     }
 
     private void validateData() {
+
         String email = emailInput.getText().toString().trim();
         String pass = passwordInput.getText().toString().trim();
         String confirmPass = confirmPasswordInput.getText().toString().trim();
@@ -55,7 +60,7 @@ public class SignupActivity extends AppCompatActivity {
 
         // סיסמה קצרה מדי
         if (pass.length() < 6) {
-            passwordInput.setError("Password must be 6 characters or more");
+            passwordInput.setError("Password must be at least 6 characters");
             return;
         }
 
@@ -65,12 +70,30 @@ public class SignupActivity extends AppCompatActivity {
             return;
         }
 
-        // אם הכול תקין
-        Toast.makeText(this, "Signup successful!", Toast.LENGTH_SHORT).show();
+        // אם הכול תקין → יצירת משתמש ב-Firebase
+        createUser(email, pass);
+    }
 
-        // אם תקין → כניסה לאפליקציה
-        Intent intent = new Intent(SignupActivity.this, HomeActivity.class);
-        startActivity(intent);
+    private void createUser(String email, String pass) {
+        auth.createUserWithEmailAndPassword(email, pass)
+                .addOnCompleteListener(task -> {
 
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "User registered successfully!", Toast.LENGTH_SHORT).show();
+
+                        // מעבר למסך הבית
+                        Intent intent = new Intent(SignupActivity.this, HomeActivity.class);
+                        startActivity(intent);
+                        finish();
+
+                    } else {
+                        // שגיאה מ-Firebase (אימייל קיים, סיסמה חלשה וכו')
+                        Toast.makeText(
+                                this,
+                                "Signup failed: " + task.getException().getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
     }
 }
