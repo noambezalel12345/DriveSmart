@@ -1,5 +1,6 @@
 package com.example.drivesmart;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Patterns;
 import android.widget.Button;
@@ -66,6 +67,10 @@ public class SignupActivity extends AppCompatActivity {
 
         // אם הכול תקין
         Toast.makeText(this, "Signup successful!", Toast.LENGTH_SHORT).show();
+
+        // אם תקין → כניסה לאפליקציה
+        Intent intent = new Intent(SignupActivity.this, HomeActivity.class);
+        startActivity(intent);
 
     }
 }
