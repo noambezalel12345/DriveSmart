@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "364827472782",
+    "project_id": "drivesmart-dd12a",
+    "storage_bucket": "drivesmart-dd12a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364827472782:android:5a71cf4593caa11d2c2adf",
+        "android_client_info": {
+          "package_name": "com.example.drivesmart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRbcDQLCsznJO2GJxFTPdiSJhxwYLaegI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

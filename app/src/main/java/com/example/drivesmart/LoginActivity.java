@@ -43,6 +43,8 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
+
+
             // אם תקין → כניסה לאפליקציה
             Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
             startActivity(intent);
