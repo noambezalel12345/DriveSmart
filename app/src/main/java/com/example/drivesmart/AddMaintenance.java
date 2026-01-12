@@ -6,7 +6,9 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.ViewModelProvider;
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -18,19 +20,13 @@ public class AddMaintenance extends AppCompatActivity {
     private Button btnSave, btnCancel;
     private ImageButton btnBack;
     private ProgressBar loader;
-
     private Calendar dueDateCalendar;
-    private AddMaintenanceViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_maintenance);
 
-        // ViewModel
-        viewModel = new ViewModelProvider(this).get(AddMaintenanceViewModel.class);
-
-        // XML
         etTitle = findViewById(R.id.etTitle);
         etDescription = findViewById(R.id.etDescription);
         etDueDate = findViewById(R.id.etDueDate);
@@ -41,48 +37,59 @@ public class AddMaintenance extends AppCompatActivity {
 
         dueDateCalendar = Calendar.getInstance();
 
-        // Observers
-        viewModel.getIsSaveEnabled().observe(this,
-                enabled -> btnSave.setEnabled(Boolean.TRUE.equals(enabled)));
-
-        viewModel.getIsLoading().observe(this,
-                loading -> loader.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
-
-        viewModel.getIsSaved().observe(this, saved -> {
-            if (Boolean.TRUE.equals(saved)) {
-                Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
-                finish();
-            }
-        });
-
-        // Input listeners
         etTitle.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                viewModel.onTitleChanged(s.toString());
+                btnSave.setEnabled(s.length() >= 2 && s.length() <= 40);
             }
             @Override public void afterTextChanged(Editable s) {}
         });
 
         etDueDate.setOnClickListener(v -> showDatePicker());
 
-        btnSave.setOnClickListener(v -> viewModel.saveMaintenance());
+        btnSave.setOnClickListener(v -> saveMaintenanceToFirebase());
         btnCancel.setOnClickListener(v -> finish());
         btnBack.setOnClickListener(v -> finish());
     }
 
     private void showDatePicker() {
         Calendar now = Calendar.getInstance();
-
         DatePickerDialog picker = new DatePickerDialog(this, (view, y, m, d) -> {
             dueDateCalendar.set(y, m, d);
-            etDueDate.setText(
-                    new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                            .format(dueDateCalendar.getTime())
-            );
+            etDueDate.setText(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    .format(dueDateCalendar.getTime()));
         }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
 
         picker.getDatePicker().setMinDate(now.getTimeInMillis());
         picker.show();
+    }
+
+    private void saveMaintenanceToFirebase() {
+        String title = etTitle.getText().toString().trim();
+        String description = etDescription.getText().toString().trim();
+        String dueDate = etDueDate.getText().toString().trim();
+
+        if (title.isEmpty()) {
+            etTitle.setError("Enter title");
+            return;
+        }
+
+        btnSave.setEnabled(false);
+        loader.setVisibility(ProgressBar.VISIBLE);
+
+        Maintenance maintenance = new Maintenance(title, description, dueDate);
+
+        DatabaseReference database = FirebaseDatabase.getInstance().getReference("maintenances");
+        database.push().setValue(maintenance)
+                .addOnCompleteListener(task -> {
+                    loader.setVisibility(ProgressBar.GONE);
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else {
+                        Toast.makeText(this, "שגיאה בשמירה", Toast.LENGTH_SHORT).show();
+                        btnSave.setEnabled(true);
+                    }
+                });
     }
 }
