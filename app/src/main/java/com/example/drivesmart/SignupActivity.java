@@ -2,24 +2,29 @@ package com.example.drivesmart;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Patterns;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.*;
+
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.firebase.auth.FirebaseAuth;
+import androidx.lifecycle.ViewModelProvider;
 
 public class SignupActivity extends AppCompatActivity {
 
     private EditText etEmail, etPassword, etConfirmPassword;
     private EditText etVehicleNumber, etVehicleModel, etVehicleYear;
     private Button btnSignup;
-    private FirebaseAuth auth;
+    private ProgressBar progressBar;
+
+    private SignupViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
 
-        // חיבור ל־XML
+        viewModel = new ViewModelProvider(this).get(SignupViewModel.class);
+
         etEmail = findViewById(R.id.etSignupEmail);
         etPassword = findViewById(R.id.etSignupPassword);
         etConfirmPassword = findViewById(R.id.etSignupConfirmPassword);
@@ -27,57 +32,56 @@ public class SignupActivity extends AppCompatActivity {
         etVehicleModel = findViewById(R.id.etVehicleModel);
         etVehicleYear = findViewById(R.id.etVehicleYear);
         btnSignup = findViewById(R.id.btnSignup);
+        progressBar = findViewById(R.id.progressLoader); // תוודא שיש ב־XML
 
-        auth = FirebaseAuth.getInstance();
+        // Observers
+        viewModel.getIsSignupEnabled().observe(this,
+                enabled -> btnSignup.setEnabled(Boolean.TRUE.equals(enabled)));
 
-        btnSignup.setOnClickListener(v -> validateAndSignup());
-    }
+        viewModel.getIsLoading().observe(this,
+                loading -> progressBar.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
 
-    private void validateAndSignup() {
-        String email = etEmail.getText().toString().trim();
-        String pass = etPassword.getText().toString().trim();
-        String confirmPass = etConfirmPassword.getText().toString().trim();
-        String vehicleNumber = etVehicleNumber.getText().toString().trim();
-        String vehicleModel = etVehicleModel.getText().toString().trim();
-        String vehicleYear = etVehicleYear.getText().toString().trim();
+        viewModel.getErrorMessage().observe(this, msg -> {
+            if (msg != null) {
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            }
+        });
 
-        // אימות בסיסי
-        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            etEmail.setError("Enter a valid email");
-            return;
-        }
-        if (pass.length() < 6) {
-            etPassword.setError("Password must be at least 6 chars");
-            return;
-        }
-        if (!pass.equals(confirmPass)) {
-            etConfirmPassword.setError("Passwords do not match");
-            return;
-        }
-        if (vehicleNumber.isEmpty()) {
-            etVehicleNumber.setError("Enter vehicle number");
-            return;
-        }
-        if (vehicleModel.isEmpty()) {
-            etVehicleModel.setError("Enter vehicle model");
-            return;
-        }
-        if (vehicleYear.isEmpty()) {
-            etVehicleYear.setError("Enter vehicle year");
-            return;
-        }
+        viewModel.getSignupSuccess().observe(this, success -> {
+            if (Boolean.TRUE.equals(success)) {
+                Toast.makeText(this, "User registered!", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, HomeActivity.class));
+                finish();
+            }
+        });
 
-        // יצירת משתמש ב-Firebase
-        auth.createUserWithEmailAndPassword(email, pass)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(this, "User registered!", Toast.LENGTH_SHORT).show();
-                        // כאן אפשר לשלוח את שדות הרכב ל-Firestore או Realtime DB אם רוצים
-                        startActivity(new Intent(this, HomeActivity.class));
-                        finish();
-                    } else {
-                        Toast.makeText(this, "Signup failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                });
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                viewModel.validateInputs(
+                        etEmail.getText().toString().trim(),
+                        etPassword.getText().toString().trim(),
+                        etConfirmPassword.getText().toString().trim(),
+                        etVehicleNumber.getText().toString().trim(),
+                        etVehicleModel.getText().toString().trim(),
+                        etVehicleYear.getText().toString().trim()
+                );
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+
+        etEmail.addTextChangedListener(watcher);
+        etPassword.addTextChangedListener(watcher);
+        etConfirmPassword.addTextChangedListener(watcher);
+        etVehicleNumber.addTextChangedListener(watcher);
+        etVehicleModel.addTextChangedListener(watcher);
+        etVehicleYear.addTextChangedListener(watcher);
+
+        btnSignup.setOnClickListener(v ->
+                viewModel.signup(
+                        etEmail.getText().toString().trim(),
+                        etPassword.getText().toString().trim()
+                )
+        );
     }
 }

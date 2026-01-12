@@ -2,56 +2,78 @@ package com.example.drivesmart;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Patterns;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.*;
+
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.firebase.auth.FirebaseAuth;
+import androidx.lifecycle.ViewModelProvider;
 
 public class LoginActivity extends AppCompatActivity {
 
     private EditText etEmail, etPassword;
     private Button btnLogin, btnGoToSignup;
-    private FirebaseAuth auth;
+    private ProgressBar progressBar;
+
+    private LoginViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        viewModel = new ViewModelProvider(this).get(LoginViewModel.class);
+
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnGoToSignup = findViewById(R.id.btnGoToSignup);
+        progressBar = findViewById(R.id.progressLoader); // תוודא שיש ב־XML
 
-        auth = FirebaseAuth.getInstance();
+        // Observers
+        viewModel.getIsLoginEnabled().observe(this,
+                enabled -> btnLogin.setEnabled(Boolean.TRUE.equals(enabled)));
 
-        btnLogin.setOnClickListener(v -> loginUser());
-        btnGoToSignup.setOnClickListener(v -> startActivity(new Intent(this, SignupActivity.class)));
-    }
+        viewModel.getIsLoading().observe(this,
+                loading -> progressBar.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
 
-    private void loginUser() {
-        String email = etEmail.getText().toString().trim();
-        String password = etPassword.getText().toString().trim();
+        viewModel.getErrorMessage().observe(this, msg -> {
+            if (msg != null) {
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            }
+        });
 
-        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            etEmail.setError("Enter a valid email");
-            return;
-        }
+        viewModel.getLoginSuccess().observe(this, success -> {
+            if (Boolean.TRUE.equals(success)) {
+                Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, HomeActivity.class));
+                finish();
+            }
+        });
 
-        if (password.isEmpty() || password.length() < 6) {
-            etPassword.setError("Password must be at least 6 chars");
-            return;
-        }
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                viewModel.validateInputs(
+                        etEmail.getText().toString().trim(),
+                        etPassword.getText().toString().trim()
+                );
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        };
 
-        auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
-                        startActivity(new Intent(this, HomeActivity.class));
-                        finish();
-                    } else {
-                        Toast.makeText(this, "Login failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                });
+        etEmail.addTextChangedListener(watcher);
+        etPassword.addTextChangedListener(watcher);
+
+        btnLogin.setOnClickListener(v ->
+                viewModel.login(
+                        etEmail.getText().toString().trim(),
+                        etPassword.getText().toString().trim()
+                )
+        );
+
+        btnGoToSignup.setOnClickListener(v ->
+                startActivity(new Intent(this, SignupActivity.class))
+        );
     }
 }

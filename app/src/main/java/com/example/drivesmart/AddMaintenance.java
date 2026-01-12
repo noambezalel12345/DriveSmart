@@ -6,6 +6,8 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
@@ -16,13 +18,19 @@ public class AddMaintenance extends AppCompatActivity {
     private Button btnSave, btnCancel;
     private ImageButton btnBack;
     private ProgressBar loader;
+
     private Calendar dueDateCalendar;
+    private AddMaintenanceViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_maintenance);
 
+        // ViewModel
+        viewModel = new ViewModelProvider(this).get(AddMaintenanceViewModel.class);
+
+        // XML
         etTitle = findViewById(R.id.etTitle);
         etDescription = findViewById(R.id.etDescription);
         etDueDate = findViewById(R.id.etDueDate);
@@ -33,42 +41,48 @@ public class AddMaintenance extends AppCompatActivity {
 
         dueDateCalendar = Calendar.getInstance();
 
+        // Observers
+        viewModel.getIsSaveEnabled().observe(this,
+                enabled -> btnSave.setEnabled(Boolean.TRUE.equals(enabled)));
+
+        viewModel.getIsLoading().observe(this,
+                loading -> loader.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
+
+        viewModel.getIsSaved().observe(this, saved -> {
+            if (Boolean.TRUE.equals(saved)) {
+                Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+
+        // Input listeners
         etTitle.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { validateInputs(); }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                viewModel.onTitleChanged(s.toString());
+            }
             @Override public void afterTextChanged(Editable s) {}
         });
 
         etDueDate.setOnClickListener(v -> showDatePicker());
-        btnSave.setOnClickListener(v -> saveMaintenance());
+
+        btnSave.setOnClickListener(v -> viewModel.saveMaintenance());
         btnCancel.setOnClickListener(v -> finish());
         btnBack.setOnClickListener(v -> finish());
     }
 
-    private void validateInputs() {
-        String title = etTitle.getText().toString().trim();
-        btnSave.setEnabled(title.length() >= 2 && title.length() <= 40);
-    }
-
     private void showDatePicker() {
         Calendar now = Calendar.getInstance();
+
         DatePickerDialog picker = new DatePickerDialog(this, (view, y, m, d) -> {
             dueDateCalendar.set(y, m, d);
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            etDueDate.setText(sdf.format(dueDateCalendar.getTime()));
+            etDueDate.setText(
+                    new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                            .format(dueDateCalendar.getTime())
+            );
         }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
+
         picker.getDatePicker().setMinDate(now.getTimeInMillis());
         picker.show();
-    }
-
-    private void saveMaintenance() {
-        loader.setVisibility(ProgressBar.VISIBLE);
-        btnSave.setEnabled(false);
-
-        etTitle.postDelayed(() -> {
-            loader.setVisibility(ProgressBar.GONE);
-            Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
-            finish();
-        }, 2000);
     }
 }
