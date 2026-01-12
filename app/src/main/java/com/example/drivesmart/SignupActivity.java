@@ -3,96 +3,80 @@ package com.example.drivesmart;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Patterns;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
-
+import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.firebase.auth.FirebaseAuth;
 
 public class SignupActivity extends AppCompatActivity {
 
-    EditText emailInput, passwordInput, confirmPasswordInput;
-    Button signupBtn;
-
-    private FirebaseAuth auth;  // ← Firebase Authentication
+    private EditText etEmail, etPassword, etConfirmPassword;
+    private EditText etVehicleNumber, etVehicleModel, etVehicleYear;
+    private Button btnSignup;
+    private FirebaseAuth auth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
 
-        // אתחול Firebase
+        // חיבור ל־XML
+        etEmail = findViewById(R.id.etSignupEmail);
+        etPassword = findViewById(R.id.etSignupPassword);
+        etConfirmPassword = findViewById(R.id.etSignupConfirmPassword);
+        etVehicleNumber = findViewById(R.id.etVehicleNumber);
+        etVehicleModel = findViewById(R.id.etVehicleModel);
+        etVehicleYear = findViewById(R.id.etVehicleYear);
+        btnSignup = findViewById(R.id.btnSignup);
+
         auth = FirebaseAuth.getInstance();
 
-        emailInput = findViewById(R.id.emailInput);
-        passwordInput = findViewById(R.id.passwordInput);
-        confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
-        signupBtn = findViewById(R.id.signupBtn);
-
-        signupBtn.setOnClickListener(v -> validateData());
+        btnSignup.setOnClickListener(v -> validateAndSignup());
     }
 
-    private void validateData() {
+    private void validateAndSignup() {
+        String email = etEmail.getText().toString().trim();
+        String pass = etPassword.getText().toString().trim();
+        String confirmPass = etConfirmPassword.getText().toString().trim();
+        String vehicleNumber = etVehicleNumber.getText().toString().trim();
+        String vehicleModel = etVehicleModel.getText().toString().trim();
+        String vehicleYear = etVehicleYear.getText().toString().trim();
 
-        String email = emailInput.getText().toString().trim();
-        String pass = passwordInput.getText().toString().trim();
-        String confirmPass = confirmPasswordInput.getText().toString().trim();
-
-        // אימייל ריק
-        if (email.isEmpty()) {
-            emailInput.setError("Email is required");
+        // אימות בסיסי
+        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            etEmail.setError("Enter a valid email");
             return;
         }
-
-        // אימייל לא תקין
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            emailInput.setError("Invalid email format");
-            return;
-        }
-
-        // סיסמה ריקה
-        if (pass.isEmpty()) {
-            passwordInput.setError("Password is required");
-            return;
-        }
-
-        // סיסמה קצרה מדי
         if (pass.length() < 6) {
-            passwordInput.setError("Password must be at least 6 characters");
+            etPassword.setError("Password must be at least 6 chars");
             return;
         }
-
-        // אימות סיסמה
         if (!pass.equals(confirmPass)) {
-            confirmPasswordInput.setError("Passwords do not match");
+            etConfirmPassword.setError("Passwords do not match");
+            return;
+        }
+        if (vehicleNumber.isEmpty()) {
+            etVehicleNumber.setError("Enter vehicle number");
+            return;
+        }
+        if (vehicleModel.isEmpty()) {
+            etVehicleModel.setError("Enter vehicle model");
+            return;
+        }
+        if (vehicleYear.isEmpty()) {
+            etVehicleYear.setError("Enter vehicle year");
             return;
         }
 
-        // אם הכול תקין → יצירת משתמש ב-Firebase
-        createUser(email, pass);
-    }
-
-    private void createUser(String email, String pass) {
+        // יצירת משתמש ב-Firebase
         auth.createUserWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(task -> {
-
                     if (task.isSuccessful()) {
-                        Toast.makeText(this, "User registered successfully!", Toast.LENGTH_SHORT).show();
-
-                        // מעבר למסך הבית
-                        Intent intent = new Intent(SignupActivity.this, HomeActivity.class);
-                        startActivity(intent);
+                        Toast.makeText(this, "User registered!", Toast.LENGTH_SHORT).show();
+                        // כאן אפשר לשלוח את שדות הרכב ל-Firestore או Realtime DB אם רוצים
+                        startActivity(new Intent(this, HomeActivity.class));
                         finish();
-
                     } else {
-                        // שגיאה מ-Firebase (אימייל קיים, סיסמה חלשה וכו')
-                        Toast.makeText(
-                                this,
-                                "Signup failed: " + task.getException().getMessage(),
-                                Toast.LENGTH_LONG
-                        ).show();
+                        Toast.makeText(this, "Signup failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
     }

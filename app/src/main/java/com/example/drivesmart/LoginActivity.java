@@ -2,88 +2,56 @@ package com.example.drivesmart;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
-
+import android.util.Patterns;
+import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.firebase.auth.FirebaseAuth;
 
 public class LoginActivity extends AppCompatActivity {
 
-    EditText emailInput, passwordInput;
-    Button loginButton, signUpButton;
-
-    private FirebaseAuth auth; // 🔥 Firebase Auth
+    private EditText etEmail, etPassword;
+    private Button btnLogin, btnGoToSignup;
+    private FirebaseAuth auth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // אתחול Firebase
+        etEmail = findViewById(R.id.etEmail);
+        etPassword = findViewById(R.id.etPassword);
+        btnLogin = findViewById(R.id.btnLogin);
+        btnGoToSignup = findViewById(R.id.btnGoToSignup);
+
         auth = FirebaseAuth.getInstance();
 
-        // חיבור לאלמנטים ב-XML
-        emailInput = findViewById(R.id.inputEmail);
-        passwordInput = findViewById(R.id.inputPassword);
-        loginButton = findViewById(R.id.buttonLogin);
-        signUpButton = findViewById(R.id.button2);
-
-        // כפתור התחברות
-        loginButton.setOnClickListener(v -> {
-
-            String email = emailInput.getText().toString().trim();
-            String password = passwordInput.getText().toString().trim();
-
-            // ולידציה לאימייל
-            if (!isValidEmail(email)) {
-                emailInput.setError("נא להזין אימייל תקין (example@mail.com)");
-                return;
-            }
-
-            // ולידציה לסיסמה
-            if (!isValidPassword(password)) {
-                passwordInput.setError("סיסמה חייבת להכיל לפחות 6 תווים");
-                return;
-            }
-
-            // 🔥 התחברות ל-Firebase
-            auth.signInWithEmailAndPassword(email, password)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-
-                            // התחברות הצליחה
-                            Toast.makeText(this, "ברוך הבא!", Toast.LENGTH_SHORT).show();
-
-                            Intent intent = new Intent(LoginActivity.this, HomeActivity.class);
-                            startActivity(intent);
-                            finish();
-
-                        } else {
-                            // כישלון בהתחברות
-                            Toast.makeText(this,
-                                    "שגיאה בהתחברות: " + task.getException().getMessage(),
-                                    Toast.LENGTH_LONG).show();
-                        }
-                    });
-        });
-
-        // מעבר למסך הרשמה
-        signUpButton.setOnClickListener(v -> {
-            Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
-            startActivity(intent);
-        });
+        btnLogin.setOnClickListener(v -> loginUser());
+        btnGoToSignup.setOnClickListener(v -> startActivity(new Intent(this, SignupActivity.class)));
     }
 
-    // בדיקת אימייל תקין
-    private boolean isValidEmail(String email) {
-        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
-    }
+    private void loginUser() {
+        String email = etEmail.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
 
-    // בדיקת סיסמה תקינה
-    private boolean isValidPassword(String password) {
-        return password.length() >= 6;
+        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            etEmail.setError("Enter a valid email");
+            return;
+        }
+
+        if (password.isEmpty() || password.length() < 6) {
+            etPassword.setError("Password must be at least 6 chars");
+            return;
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(this, HomeActivity.class));
+                        finish();
+                    } else {
+                        Toast.makeText(this, "Login failed: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 }

@@ -1,68 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="24dp"
+    android:background="#EAF3FF">
 
     <TextView
+        android:id="@+id/tvSignupTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingBottom="32dp"
-        android:text="sign up"
-        android:textColor="#000000"
-        android:textSize="28sp"
-        android:textStyle="bold" />
+        android:text="Signup"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#3A4FA3"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Email -->
     <EditText
-        android:id="@+id/emailInput"
+        android:id="@+id/etSignupEmail"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
         android:hint="Email"
         android:inputType="textEmailAddress"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tvSignupTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp"/>
 
+    <!-- Password -->
     <EditText
-        android:id="@+id/passwordInput"
+        android:id="@+id/etSignupPassword"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
         android:hint="Password"
         android:inputType="textPassword"
-        android:layout_marginTop="16dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/etSignupEmail"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
+    <!-- Confirm Password -->
     <EditText
-        android:id="@+id/confirmPasswordInput"
+        android:id="@+id/etSignupConfirmPassword"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
         android:hint="Confirm Password"
         android:inputType="textPassword"
-        android:layout_marginTop="16dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/etSignupPassword"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
+    <!-- Vehicle Number -->
     <EditText
-        android:id="@+id/VehicleNumber"
-        android:hint="Vehicle number"
-        android:layout_marginTop="16dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:id="@+id/etVehicleNumber"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:hint="Vehicle Number"
+        android:inputType="text"
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/etSignupConfirmPassword"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
+    <!-- Vehicle Model -->
     <EditText
-        android:id="@+id/Model"
-        android:hint="Model"
-        android:layout_marginTop="16dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:id="@+id/etVehicleModel"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:hint="Vehicle Model"
+        android:inputType="text"
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/etVehicleNumber"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
+    <!-- Vehicle Year -->
     <EditText
-        android:id="@+id/Year"
-        android:hint="Year"
-        android:layout_marginTop="16dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:id="@+id/etVehicleYear"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:hint="Vehicle Year"
+        android:inputType="number"
+        android:background="@android:drawable/edit_text"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/etVehicleModel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
+    <!-- Signup Button -->
     <Button
-        android:id="@+id/signupBtn"
-        android:text="Sign up"
-        android:layout_marginTop="24dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-</LinearLayout>
+        android:id="@+id/btnSignup"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:text="Signup"
+        android:backgroundTint="#3A4FA3"
+        android:textColor="@android:color/white"
+        app:layout_constraintTop_toBottomOf="@id/etVehicleYear"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp"/>
+</androidx.constraintlayout.widget.ConstraintLayout>
