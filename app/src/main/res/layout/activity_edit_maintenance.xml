@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#EAF3FF"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvEditTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="EDIT\nMAINTENANCE"
+        android:textAlignment="center"
+        android:textColor="#1A3A6D"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <EditText
+        android:id="@+id/etEditTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:hint="Maintenance title"
+        android:inputType="text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvEditTitle" />
+
+    <EditText
+        android:id="@+id/etEditDescription"
+        android:layout_width="0dp"
+        android:layout_height="120dp"
+        android:layout_marginTop="16dp"
+        android:background="#D6E9FF"
+        android:gravity="top"
+        android:hint="Description"
+        android:padding="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/etEditTitle" />
+
+    <EditText
+        android:id="@+id/etEditDueDate"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:focusable="false"
+        android:hint="Due date"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/etEditDescription" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/etEditDueDate">
+
+        <Button
+            android:id="@+id/btnSaveEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="#1A3A6D"
+            android:text="Save"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btnCancelEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="#A3C5FF"
+            android:text="Cancel"
+            android:textColor="#1A3A6D" />
+
+        <Button
+            android:id="@+id/btnDeleteEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.2"
+            android:backgroundTint="#C65F00"
+            android:text="Delete"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/editLoader"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

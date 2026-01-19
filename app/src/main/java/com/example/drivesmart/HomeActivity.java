@@ -3,6 +3,7 @@ package com.example.drivesmart;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -23,7 +24,12 @@ public class HomeActivity extends AppCompatActivity {
     private MaintenanceAdapter adapter;
     private List<Maintenance> maintenanceList;
     private TextView tvNoMaintenance;
-
+    private MaintenanceAdapter.OnItemClickListener adapterListener = new MaintenanceAdapter.OnItemClickListener() {
+        @Override
+        public void onItemClick(Maintenance m) {
+            Log.d("HomeActivity", "item clicked" + m.title);
+        }
+    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,7 +40,7 @@ public class HomeActivity extends AppCompatActivity {
         FloatingActionButton fabAdd = findViewById(R.id.fabAdd);
 
         maintenanceList = new ArrayList<>();
-        adapter = new MaintenanceAdapter(maintenanceList);
+        adapter = new MaintenanceAdapter(maintenanceList, adapterListener);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
@@ -42,6 +48,8 @@ public class HomeActivity extends AppCompatActivity {
 
         loadMaintenanceFromFirebase();
     }
+
+
 
     private void loadMaintenanceFromFirebase() {
         DatabaseReference database = FirebaseDatabase.getInstance().getReference("maintenances");

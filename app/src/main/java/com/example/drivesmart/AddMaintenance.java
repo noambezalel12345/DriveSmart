@@ -1,15 +1,15 @@
 package com.example.drivesmart;
 
 import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
@@ -18,78 +18,79 @@ public class AddMaintenance extends AppCompatActivity {
 
     private EditText etTitle, etDescription, etDueDate;
     private Button btnSave, btnCancel;
-    private ImageButton btnBack;
     private ProgressBar loader;
-    private Calendar dueDateCalendar;
+    private Calendar calendar = Calendar.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_maintenance);
 
+        // אתחול רכיבים לפי ה-XML שלך
         etTitle = findViewById(R.id.etTitle);
         etDescription = findViewById(R.id.etDescription);
         etDueDate = findViewById(R.id.etDueDate);
         btnSave = findViewById(R.id.btnSave);
         btnCancel = findViewById(R.id.btnCancel);
-        btnBack = findViewById(R.id.btnBack);
         loader = findViewById(R.id.progressLoader);
 
-        dueDateCalendar = Calendar.getInstance();
-
+        // מאזין לשינוי טקסט - כדי להפעיל את הכפתור (שב-XML מוגדר כ-false)
         etTitle.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                btnSave.setEnabled(s.length() >= 2 && s.length() <= 40);
+                // הכפתור יהיה פעיל רק אם יש לפחות 2 תווים
+                btnSave.setEnabled(s.toString().trim().length() >= 2);
             }
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        etDueDate.setOnClickListener(v -> showDatePicker());
+        // בחירת תאריך עם חסימת עבר
+        etDueDate.setOnClickListener(v -> {
+            DatePickerDialog picker = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+                calendar.set(year, month, dayOfMonth);
+                etDueDate.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(calendar.getTime()));
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
 
-        btnSave.setOnClickListener(v -> saveMaintenanceToFirebase());
+            picker.getDatePicker().setMinDate(System.currentTimeMillis()); // חסימת עבר
+            picker.show();
+        });
+
+        // כפתור שמירה
+        btnSave.setOnClickListener(v -> saveMaintenance());
+
+        // כפתור ביטול
         btnCancel.setOnClickListener(v -> finish());
-        btnBack.setOnClickListener(v -> finish());
+
+        // כפתור חזרה (ImageButton שבפינה)
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
     }
 
-    private void showDatePicker() {
-        Calendar now = Calendar.getInstance();
-        DatePickerDialog picker = new DatePickerDialog(this, (view, y, m, d) -> {
-            dueDateCalendar.set(y, m, d);
-            etDueDate.setText(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    .format(dueDateCalendar.getTime()));
-        }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
-
-        picker.getDatePicker().setMinDate(now.getTimeInMillis());
-        picker.show();
-    }
-
-    private void saveMaintenanceToFirebase() {
+    private void saveMaintenance() {
         String title = etTitle.getText().toString().trim();
-        String description = etDescription.getText().toString().trim();
-        String dueDate = etDueDate.getText().toString().trim();
+        String desc = etDescription.getText().toString().trim();
+        String date = etDueDate.getText().toString().trim();
 
-        if (title.isEmpty()) {
-            etTitle.setError("Enter title");
-            return;
-        }
-
+        loader.setVisibility(View.VISIBLE);
         btnSave.setEnabled(false);
-        loader.setVisibility(ProgressBar.VISIBLE);
 
-        Maintenance maintenance = new Maintenance(title, description, dueDate);
+        // חיבור ל-Firebase שלך
+        DatabaseReference db = FirebaseDatabase.getInstance("https://drivesmart-dd12a-default-rtdb.firebaseio.com/").getReference("maintenances");
 
-        DatabaseReference database = FirebaseDatabase.getInstance().getReference("maintenances");
-        database.push().setValue(maintenance)
-                .addOnCompleteListener(task -> {
-                    loader.setVisibility(ProgressBar.GONE);
-                    if (task.isSuccessful()) {
-                        Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
-                        finish();
-                    } else {
-                        Toast.makeText(this, "שגיאה בשמירה", Toast.LENGTH_SHORT).show();
-                        btnSave.setEnabled(true);
-                    }
-                });
+        Maintenance m = new Maintenance(title, desc, date);
+
+        db.push().setValue(m).addOnCompleteListener(task -> {
+            loader.setVisibility(View.GONE);
+            if (task.isSuccessful()) {
+                Toast.makeText(this, "נשמר בהצלחה", Toast.LENGTH_SHORT).show();
+                // מעבר לדף הטיפולים שלי
+                Intent intent = new Intent(this, MyMaintenances.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+                finish();
+            } else {
+                btnSave.setEnabled(true);
+                Toast.makeText(this, "שגיאה: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 }
