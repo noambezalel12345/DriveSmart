@@ -2,8 +2,9 @@ package com.example.drivesmart;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.ImageButton;
-import androidx.annotation.NonNull;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -18,6 +19,7 @@ public class MyMaintenances extends AppCompatActivity {
     private MaintenanceAdapter adapter;
     private List<Maintenance> maintenanceList;
     private DatabaseReference database;
+    private Button btnDeleteSelected;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,6 +27,7 @@ public class MyMaintenances extends AppCompatActivity {
         setContentView(R.layout.activity_my_maintenances);
 
         rvMaintenances = findViewById(R.id.rvMaintenances);
+        btnDeleteSelected = findViewById(R.id.btnDeleteSelected); // כפתור מחיקה חדש
         ImageButton btnBack = findViewById(R.id.btnBack);
         FloatingActionButton btnAdd = findViewById(R.id.btnAddMaintenance);
 
@@ -32,7 +35,7 @@ public class MyMaintenances extends AppCompatActivity {
         maintenanceList = new ArrayList<>();
 
         adapter = new MaintenanceAdapter(maintenanceList, item -> {
-            Intent intent = new Intent(MyMaintenances.this, EditMaintenanceActivity.class);
+            Intent intent = new Intent(this, EditMaintenanceActivity.class);
             intent.putExtra("MAINTENANCE_ID", item.id);
             intent.putExtra("TITLE", item.title);
             intent.putExtra("DESCRIPTION", item.description);
@@ -41,10 +44,12 @@ public class MyMaintenances extends AppCompatActivity {
         });
 
         rvMaintenances.setAdapter(adapter);
-
-        // חיבור ישיר לכתובת ה-Database שלך למניעת טעינה אינסופית
         database = FirebaseDatabase.getInstance("https://drivesmart-dd12a-default-rtdb.firebaseio.com/").getReference("maintenances");
+
         fetchMaintenances();
+
+        // לחיצה על כפתור מחיקת המסומנים
+        btnDeleteSelected.setOnClickListener(v -> deleteSelectedItems());
 
         btnBack.setOnClickListener(v -> finish());
         btnAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenance.class)));
@@ -53,7 +58,7 @@ public class MyMaintenances extends AppCompatActivity {
     private void fetchMaintenances() {
         database.addValueEventListener(new ValueEventListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
+            public void onDataChange(DataSnapshot snapshot) {
                 maintenanceList.clear();
                 for (DataSnapshot ds : snapshot.getChildren()) {
                     Maintenance m = ds.getValue(Maintenance.class);
@@ -65,7 +70,23 @@ public class MyMaintenances extends AppCompatActivity {
                 adapter.notifyDataSetChanged();
             }
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(DatabaseError error) {}
         });
+    }
+
+    private void deleteSelectedItems() {
+        List<Maintenance> toDelete = adapter.getSelectedItems();
+        if (toDelete.isEmpty()) {
+            Toast.makeText(this, "לא נבחרו טיפולים למחיקה", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        for (Maintenance m : toDelete) {
+            if (m.id != null) {
+                database.child(m.id).removeValue(); // מחיקה מה-Firebase
+            }
+        }
+        Toast.makeText(this, "הטיפולים שנבחרו נמחקו", Toast.LENGTH_SHORT).show();
+        toDelete.clear(); // ניקוי הרשימה לאחר המחיקה
     }
 }
