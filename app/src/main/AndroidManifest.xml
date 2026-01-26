@@ -15,9 +15,7 @@
         <activity
             android:name=".EditMaintenanceActivity"
             android:exported="false" />
-        <activity
-            android:name=".MyMaintenances"
-            android:exported="false" /> <!-- Add Maintenance Screen -->
+
         <activity
             android:name=".AddMaintenance"
             android:exported="false" /> <!-- Home Screen -->

@@ -83,7 +83,7 @@ public class AddMaintenance extends AppCompatActivity {
             if (task.isSuccessful()) {
                 Toast.makeText(this, "נשמר בהצלחה", Toast.LENGTH_SHORT).show();
                 // מעבר לדף הטיפולים שלי
-                Intent intent = new Intent(this, MyMaintenances.class);
+                Intent intent = new Intent(this, HomeActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(intent);
                 finish();
