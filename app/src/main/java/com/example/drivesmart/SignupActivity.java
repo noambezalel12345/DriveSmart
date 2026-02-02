@@ -2,86 +2,93 @@ package com.example.drivesmart;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.view.View;
 import android.widget.*;
-
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.ViewModelProvider;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SignupActivity extends AppCompatActivity {
 
-    private EditText etEmail, etPassword, etConfirmPassword;
-    private EditText etVehicleNumber, etVehicleModel, etVehicleYear;
+    private EditText etEmail, etPassword, etVehicleNumber, etVehicleModel, etVehicleYear;
     private Button btnSignup;
+    private TextView tvBackToLogin;
     private ProgressBar progressBar;
 
-    private SignupViewModel viewModel;
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
 
-        viewModel = new ViewModelProvider(this).get(SignupViewModel.class);
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         etEmail = findViewById(R.id.etSignupEmail);
         etPassword = findViewById(R.id.etSignupPassword);
-        etConfirmPassword = findViewById(R.id.etSignupConfirmPassword);
         etVehicleNumber = findViewById(R.id.etVehicleNumber);
         etVehicleModel = findViewById(R.id.etVehicleModel);
         etVehicleYear = findViewById(R.id.etVehicleYear);
         btnSignup = findViewById(R.id.btnSignup);
-        progressBar = findViewById(R.id.progressLoader); // תוודא שיש ב־XML
+        tvBackToLogin = findViewById(R.id.tvBackToLogin);
+        progressBar = findViewById(R.id.progressLoader);
 
-        // Observers
-        viewModel.getIsSignupEnabled().observe(this,
-                enabled -> btnSignup.setEnabled(Boolean.TRUE.equals(enabled)));
+        btnSignup.setOnClickListener(v -> signupUser());
+        tvBackToLogin.setOnClickListener(v -> finish());
+    }
 
-        viewModel.getIsLoading().observe(this,
-                loading -> progressBar.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
+    private void signupUser() {
+        String email = etEmail.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
+        String vNumber = etVehicleNumber.getText().toString().trim();
+        String vModel = etVehicleModel.getText().toString().trim();
+        String vYear = etVehicleYear.getText().toString().trim();
 
-        viewModel.getErrorMessage().observe(this, msg -> {
-            if (msg != null) {
-                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-            }
-        });
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "נא למלא אימייל וסיסמה", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        viewModel.getSignupSuccess().observe(this, success -> {
-            if (Boolean.TRUE.equals(success)) {
-                Toast.makeText(this, "User registered!", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(this, HomeActivity.class));
-                finish();
-            }
-        });
+        progressBar.setVisibility(View.VISIBLE);
+        btnSignup.setEnabled(false);
 
-        TextWatcher watcher = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                viewModel.validateInputs(
-                        etEmail.getText().toString().trim(),
-                        etPassword.getText().toString().trim(),
-                        etConfirmPassword.getText().toString().trim(),
-                        etVehicleNumber.getText().toString().trim(),
-                        etVehicleModel.getText().toString().trim(),
-                        etVehicleYear.getText().toString().trim()
-                );
-            }
-            @Override public void afterTextChanged(Editable s) {}
-        };
+        mAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        String userId = mAuth.getCurrentUser().getUid();
+                        saveUserData(userId, vNumber, vModel, vYear);
+                    } else {
+                        progressBar.setVisibility(View.GONE);
+                        btnSignup.setEnabled(true);
+                        Toast.makeText(this, "שגיאה בהרשמה: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
 
-        etEmail.addTextChangedListener(watcher);
-        etPassword.addTextChangedListener(watcher);
-        etConfirmPassword.addTextChangedListener(watcher);
-        etVehicleNumber.addTextChangedListener(watcher);
-        etVehicleModel.addTextChangedListener(watcher);
-        etVehicleYear.addTextChangedListener(watcher);
+    private void saveUserData(String userId, String vNumber, String vModel, String vYear) {
+        Map<String, Object> user = new HashMap<>();
+        user.put("vehicleNumber", vNumber);
+        user.put("vehicleModel", vModel);
+        user.put("vehicleYear", vYear);
+        user.put("maintenances", new ArrayList<>()); // יצירת רשימה ריקה מראש
 
-        btnSignup.setOnClickListener(v ->
-                viewModel.signup(
-                        etEmail.getText().toString().trim(),
-                        etPassword.getText().toString().trim()
-                )
-        );
+        db.collection("users").document(userId)
+                .set(user)
+                .addOnSuccessListener(aVoid -> {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(this, "נרשמת בהצלחה!", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, HomeActivity.class));
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    progressBar.setVisibility(View.GONE);
+                    btnSignup.setEnabled(true);
+                    Toast.makeText(this, "שגיאה בשמירת נתונים: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 }

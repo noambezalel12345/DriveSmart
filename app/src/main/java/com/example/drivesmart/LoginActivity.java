@@ -4,76 +4,75 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.widget.*;
-
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.ViewModelProvider;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class LoginActivity extends AppCompatActivity {
 
     private EditText etEmail, etPassword;
     private Button btnLogin, btnGoToSignup;
     private ProgressBar progressBar;
-
-    private LoginViewModel viewModel;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        viewModel = new ViewModelProvider(this).get(LoginViewModel.class);
+        mAuth = FirebaseAuth.getInstance();
 
+        // אתחול רכיבים לפי ה-IDs ב-XML שלך
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnGoToSignup = findViewById(R.id.btnGoToSignup);
-        progressBar = findViewById(R.id.progressLoader); // תוודא שיש ב־XML
+        progressBar = findViewById(R.id.progressLoader);
 
-        // Observers
-        viewModel.getIsLoginEnabled().observe(this,
-                enabled -> btnLogin.setEnabled(Boolean.TRUE.equals(enabled)));
-
-        viewModel.getIsLoading().observe(this,
-                loading -> progressBar.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE));
-
-        viewModel.getErrorMessage().observe(this, msg -> {
-            if (msg != null) {
-                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-            }
-        });
-
-        viewModel.getLoginSuccess().observe(this, success -> {
-            if (Boolean.TRUE.equals(success)) {
-                Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
-                startActivity(new Intent(this, HomeActivity.class));
-                finish();
-            }
-        });
-
-        TextWatcher watcher = new TextWatcher() {
+        // מאזין לשינוי טקסט כדי להפעיל את כפתור ההתחברות
+        TextWatcher loginWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                viewModel.validateInputs(
-                        etEmail.getText().toString().trim(),
-                        etPassword.getText().toString().trim()
-                );
+                String email = etEmail.getText().toString().trim();
+                String password = etPassword.getText().toString().trim();
+                // הכפתור יהיה פעיל רק אם שני השדות אינם ריקים
+                btnLogin.setEnabled(!email.isEmpty() && !password.isEmpty());
             }
             @Override public void afterTextChanged(Editable s) {}
         };
 
-        etEmail.addTextChangedListener(watcher);
-        etPassword.addTextChangedListener(watcher);
+        etEmail.addTextChangedListener(loginWatcher);
+        etPassword.addTextChangedListener(loginWatcher);
 
-        btnLogin.setOnClickListener(v ->
-                viewModel.login(
-                        etEmail.getText().toString().trim(),
-                        etPassword.getText().toString().trim()
-                )
-        );
+        // כפתור התחברות
+        btnLogin.setOnClickListener(v -> loginUser());
 
-        btnGoToSignup.setOnClickListener(v ->
-                startActivity(new Intent(this, SignupActivity.class))
-        );
+        // כפתור מעבר להרשמה
+        btnGoToSignup.setOnClickListener(v -> {
+            startActivity(new Intent(this, SignupActivity.class));
+        });
+    }
+
+    private void loginUser() {
+        String email = etEmail.getText().toString().trim();
+        String password = etPassword.getText().toString().trim();
+
+        progressBar.setVisibility(View.VISIBLE);
+        btnLogin.setEnabled(false);
+
+        mAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, task -> {
+                    progressBar.setVisibility(View.GONE);
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "התחברת בהצלחה!", Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(this, HomeActivity.class));
+                        finish();
+                    } else {
+                        btnLogin.setEnabled(true);
+                        String error = task.getException() != null ? task.getException().getMessage() : "Authentication failed";
+                        Toast.makeText(this, "שגיאה: " + error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 }

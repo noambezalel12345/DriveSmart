@@ -8,16 +8,19 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.database.*;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -26,14 +29,20 @@ public class HomeActivity extends AppCompatActivity {
     private List<Maintenance> maintenanceList;
     private TextView tvNoMaintenance;
     private Button btnDeleteSelected;
-    private DatabaseReference database;
+
+    private FirebaseFirestore db;
+    private String userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        // אתחול רכיבים
+        db = FirebaseFirestore.getInstance();
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        }
+
         recyclerView = findViewById(R.id.recyclerView);
         tvNoMaintenance = findViewById(R.id.tvNoMaintenance);
         btnDeleteSelected = findViewById(R.id.btnDeleteSelected);
@@ -41,11 +50,8 @@ public class HomeActivity extends AppCompatActivity {
         ImageButton btnBack = findViewById(R.id.btnBack);
 
         maintenanceList = new ArrayList<>();
-
-        // הגדרת האדפטר עם מאזין למעבר לדף עריכה
         adapter = new MaintenanceAdapter(maintenanceList, item -> {
             Intent intent = new Intent(HomeActivity.this, EditMaintenanceActivity.class);
-            intent.putExtra("MAINTENANCE_ID", item.id);
             intent.putExtra("TITLE", item.title);
             intent.putExtra("DESCRIPTION", item.description);
             intent.putExtra("DUE_DATE", item.dueDate);
@@ -55,50 +61,63 @@ public class HomeActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        // חיבור ל-Firebase
-        database = FirebaseDatabase.getInstance("https://drivesmart-dd12a-default-rtdb.firebaseio.com/").getReference("maintenances");
-
-        // לחיצה על הוספת טיפול
         fabAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenance.class)));
-
-        // לחיצה על חזרה
         btnBack.setOnClickListener(v -> finish());
-
-        // לוגיקת מחיקה של פריטים מסומנים
         btnDeleteSelected.setOnClickListener(v -> deleteSelectedMaintenances());
 
-        loadMaintenanceFromFirebase();
+        loadMaintenanceFromFirestore();
     }
 
-    private void loadMaintenanceFromFirebase() {
-        database.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                maintenanceList.clear();
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    Maintenance m = data.getValue(Maintenance.class);
-                    if (m != null) {
-                        m.id = data.getKey();
-                        maintenanceList.add(m);
+    private void loadMaintenanceFromFirestore() {
+        if (userId == null) return;
+
+        db.collection("users").document(userId)
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        Log.e("FirestoreError", "Listen failed: " + e.getMessage());
+                        return;
                     }
-                }
-                adapter.notifyDataSetChanged();
 
-                // עדכון תצוגת "אין טיפולים"
-                boolean isEmpty = maintenanceList.isEmpty();
-                tvNoMaintenance.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-                findViewById(R.id.imgEmpty).setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-                findViewById(R.id.tvAddMaintenance).setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+                    maintenanceList.clear();
 
-                // הצגת כפתור מחיקה רק אם יש נתונים
-                btnDeleteSelected.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-            }
+                    if (snapshot != null && snapshot.exists()) {
+                        List<Map<String, Object>> rawList = (List<Map<String, Object>>) snapshot.get("maintenances");
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("HomeActivity", "Firebase Error: " + error.getMessage());
-            }
-        });
+                        if (rawList != null) {
+                            for (Map<String, Object> data : rawList) {
+                                Maintenance m = new Maintenance(
+                                        (String) data.get("title"),
+                                        (String) data.get("description"),
+                                        (String) data.get("dueDate")
+                                );
+                                maintenanceList.add(m);
+                            }
+                        }
+                    }
+
+                    adapter.notifyDataSetChanged();
+                    updateUI(); // מעדכן את הנראות של כל הרכיבים
+                });
+    }
+
+    private void updateUI() {
+        boolean isEmpty = maintenanceList.isEmpty();
+
+        // 1. הודעת "אין טיפולים"
+        tvNoMaintenance.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+
+        // 2. כפתור המחיקה האדום - מופיע רק כשיש פריטים
+        btnDeleteSelected.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+
+        // 3. הסתרת האיקס (imgEmpty) מה-XML
+        if (findViewById(R.id.imgEmpty) != null) {
+            findViewById(R.id.imgEmpty).setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
+
+        // 4. הסתרת הטקסט המשני "Add car maintenance"
+        if (findViewById(R.id.tvAddMaintenance) != null) {
+            findViewById(R.id.tvAddMaintenance).setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void deleteSelectedMaintenances() {
@@ -108,11 +127,13 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
 
+        DocumentReference userRef = db.collection("users").document(userId);
+
         for (Maintenance m : selected) {
-            database.child(m.id).removeValue();
+            userRef.update("maintenances", FieldValue.arrayRemove(m));
         }
 
-        selected.clear();
-        Toast.makeText(this, "הטיפולים שנבחרו נמחקו בהצלחה", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "הפריטים נמחקו", Toast.LENGTH_SHORT).show();
+        // הערה: ה-SnapshotListener כבר יעדכן את הרשימה אוטומטית, אין צורך ב-clear ידני כאן.
     }
 }

@@ -5,14 +5,21 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 public class AddMaintenance extends AppCompatActivity {
 
@@ -21,12 +28,25 @@ public class AddMaintenance extends AppCompatActivity {
     private ProgressBar loader;
     private Calendar calendar = Calendar.getInstance();
 
+    private FirebaseFirestore db;
+    private String userId;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_maintenance);
 
-        // אתחול רכיבים לפי ה-XML שלך
+        // אתחול Firestore ו-Auth
+        db = FirebaseFirestore.getInstance();
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        } else {
+            Toast.makeText(this, "שגיאה: משתמש לא מחובר", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        // אתחול רכיבי ה-UI
         etTitle = findViewById(R.id.etTitle);
         etDescription = findViewById(R.id.etDescription);
         etDueDate = findViewById(R.id.etDueDate);
@@ -34,63 +54,74 @@ public class AddMaintenance extends AppCompatActivity {
         btnCancel = findViewById(R.id.btnCancel);
         loader = findViewById(R.id.progressLoader);
 
-        // מאזין לשינוי טקסט - כדי להפעיל את הכפתור (שב-XML מוגדר כ-false)
+        // מאזין לשינוי טקסט להפעלת כפתור השמירה
         etTitle.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // הכפתור יהיה פעיל רק אם יש לפחות 2 תווים
                 btnSave.setEnabled(s.toString().trim().length() >= 2);
             }
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // בחירת תאריך עם חסימת עבר
+        // בחירת תאריך
         etDueDate.setOnClickListener(v -> {
             DatePickerDialog picker = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
                 calendar.set(year, month, dayOfMonth);
                 etDueDate.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(calendar.getTime()));
             }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
 
-            picker.getDatePicker().setMinDate(System.currentTimeMillis()); // חסימת עבר
+            picker.getDatePicker().setMinDate(System.currentTimeMillis());
             picker.show();
         });
 
-        // כפתור שמירה
-        btnSave.setOnClickListener(v -> saveMaintenance());
-
-        // כפתור ביטול
+        btnSave.setOnClickListener(v -> saveMaintenanceToFirestore());
         btnCancel.setOnClickListener(v -> finish());
 
-        // כפתור חזרה (ImageButton שבפינה)
-        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        if (findViewById(R.id.btnBack) != null) {
+            findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        }
     }
 
-    private void saveMaintenance() {
+    private void saveMaintenanceToFirestore() {
         String title = etTitle.getText().toString().trim();
         String desc = etDescription.getText().toString().trim();
         String date = etDueDate.getText().toString().trim();
 
+        if (title.isEmpty() || date.isEmpty()) {
+            Toast.makeText(this, "נא למלא כותרת ותאריך", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         loader.setVisibility(View.VISIBLE);
         btnSave.setEnabled(false);
 
-        // חיבור ל-Firebase שלך
-        DatabaseReference db = FirebaseDatabase.getInstance("https://drivesmart-dd12a-default-rtdb.firebaseio.com/").getReference("maintenances");
-
+        // יצירת אובייקט הטיפול
         Maintenance m = new Maintenance(title, desc, date);
 
-        db.push().setValue(m).addOnCompleteListener(task -> {
-            loader.setVisibility(View.GONE);
-            if (task.isSuccessful()) {
-                Toast.makeText(this, "נשמר בהצלחה", Toast.LENGTH_SHORT).show();
-                // מעבר לדף הטיפולים שלי
-                Intent intent = new Intent(this, HomeActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(intent);
-                finish();
-            } else {
-                btnSave.setEnabled(true);
-                Toast.makeText(this, "שגיאה: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-            }
-        });
+        // יצירת מפה לעדכון המערך (Array)
+        Map<String, Object> data = new HashMap<>();
+        data.put("maintenances", FieldValue.arrayUnion(m));
+
+        // שימוש ב-set עם SetOptions.merge()
+        // פקודה זו תיצור את המסמך אם הוא לא קיים, ותוסיף איבר למערך אם הוא קיים
+        db.collection("users").document(userId)
+                .set(data, SetOptions.merge())
+                .addOnCompleteListener(task -> {
+                    loader.setVisibility(View.GONE);
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "הטיפול נשמר בהצלחה", Toast.LENGTH_SHORT).show();
+
+                        // חזרה לדף הבית
+                        Intent intent = new Intent(this, HomeActivity.class);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        btnSave.setEnabled(true);
+                        String error = task.getException() != null ? task.getException().getMessage() : "Unknown error";
+                        Log.e("FirestoreError", "Error saving: " + error);
+                        Toast.makeText(this, "שגיאה בשמירה: " + error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 }
