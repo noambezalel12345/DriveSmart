@@ -15,12 +15,15 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
     private final List<Maintenance> list;
     private final List<Maintenance> selectedItems = new ArrayList<>();
     private final OnItemClickListener listener;
+    private final OnSelectionChangeListener selectionListener;
 
     public interface OnItemClickListener { void onItemClick(Maintenance m); }
+    public interface OnSelectionChangeListener { void onSelectionChanged(int count); }
 
-    public MaintenanceAdapter(List<Maintenance> list, OnItemClickListener listener) {
+    public MaintenanceAdapter(List<Maintenance> list, OnItemClickListener listener, OnSelectionChangeListener selectionListener) {
         this.list = list;
         this.listener = listener;
+        this.selectionListener = selectionListener;
     }
 
     public List<Maintenance> getSelectedItems() { return selectedItems; }
@@ -39,14 +42,16 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
         holder.tvTitle.setText(m.title);
         holder.tvDate.setText(m.dueDate);
 
-        // ניקוי מצב קודם של הצ'קבוקס
         holder.cbDone.setOnCheckedChangeListener(null);
         holder.cbDone.setChecked(selectedItems.contains(m));
 
-        // ניהול רשימת המסומנים
         holder.cbDone.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) selectedItems.add(m);
-            else selectedItems.remove(m);
+            if (isChecked) {
+                if (!selectedItems.contains(m)) selectedItems.add(m);
+            } else {
+                selectedItems.remove(m);
+            }
+            if (selectionListener != null) selectionListener.onSelectionChanged(selectedItems.size());
         });
 
         holder.itemView.setOnClickListener(v -> listener.onItemClick(m));
