@@ -1,4 +1,4 @@
-package com.example.drivesmart;
+package com.example.drivesmart.model;
 
 import java.util.Objects;
 

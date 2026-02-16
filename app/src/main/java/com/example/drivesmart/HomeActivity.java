@@ -1,6 +1,12 @@
 package com.example.drivesmart;
 
+import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -8,14 +14,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.drivesmart.model.Maintenance;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +48,13 @@ public class HomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+
+        // בקשת הרשאות להתראות באנדרואיד 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
 
         db = FirebaseFirestore.getInstance();
         userId = FirebaseAuth.getInstance().getUid();
@@ -73,8 +92,6 @@ public class HomeActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         fabAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenance.class)));
-
-        // לחיצה על הכפתור האדום פותחת דיאלוג בחירה
         btnDeleteSelected.setOnClickListener(v -> showDeleteOptionsDialog());
 
         loadMaintenanceFromFirestore();
@@ -91,7 +108,6 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         if (!hasRecurring) {
-            // אם אין מחזוריים, פשוט מוחקים
             new AlertDialog.Builder(this)
                     .setTitle("מחיקת טיפולים")
                     .setMessage("האם למחוק את הטיפולים שנבחרו?")
@@ -100,7 +116,6 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
 
-        // דיאלוג עבור טיפולים מחזוריים
         new AlertDialog.Builder(this)
                 .setTitle("סיום טיפול")
                 .setMessage("חלק מהטיפולים הם מחזוריים. האם תרצה לחדש אותם לשנה הבאה או למחוק לגמרי?")
@@ -126,12 +141,16 @@ public class HomeActivity extends AppCompatActivity {
                         if (sel.title.equals(rem.get("title")) && sel.dueDate.equals(rem.get("dueDate"))) {
                             toRemove.add(rem);
                             if (shouldRenew && sel.isRecurring) {
+                                String nextDate = calculateNextYear(sel.dueDate);
                                 Map<String, Object> nextM = new HashMap<>();
                                 nextM.put("title", sel.title);
                                 nextM.put("description", sel.description);
-                                nextM.put("dueDate", calculateNextYear(sel.dueDate));
+                                nextM.put("dueDate", nextDate);
                                 nextM.put("isRecurring", true);
                                 toAdd.add(nextM);
+
+                                // קביעת התראה לשנה הבאה
+                                setAlarm(sel.title, sel.description, nextDate);
                             }
                             break;
                         }
@@ -149,6 +168,24 @@ public class HomeActivity extends AppCompatActivity {
                         });
             }
         });
+    }
+
+    private void setAlarm(String title, String description, String dateTimeStr) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+            Date date = sdf.parse(dateTimeStr);
+            if (date == null || date.getTime() <= System.currentTimeMillis()) return;
+
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            Intent intent = new Intent(this, NotificationReceiver.class);
+            intent.putExtra("title", "תזכורת לטיפול: " + title);
+            intent.putExtra("message", description);
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(this, (int) date.getTime(),
+                    intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pendingIntent);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void loadMaintenanceFromFirestore() {
