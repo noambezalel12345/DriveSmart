@@ -36,6 +36,7 @@ public class EditMaintenanceActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String userId;
     private Maintenance originalMaintenance;
+    private Calendar calendar = Calendar.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +46,7 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         userId = FirebaseAuth.getInstance().getUid();
 
+        // קישור IDs - וודא שהם תואמים ל-XML שלך
         etTitle = findViewById(R.id.etEditTitle);
         etDescription = findViewById(R.id.etEditDescription);
         etDueDate = findViewById(R.id.etEditDueDate);
@@ -54,6 +56,7 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.btnDeleteEdit);
         loader = findViewById(R.id.editLoader);
 
+        // קבלת נתונים מה-Intent
         String fullDateTime = getIntent().getStringExtra("DUE_DATE");
         String title = getIntent().getStringExtra("TITLE");
         String description = getIntent().getStringExtra("DESCRIPTION");
@@ -71,21 +74,34 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         etTitle.setText(title);
         etDescription.setText(description);
 
+        // בחירת תאריך עם חסימת עבר
         etDueDate.setOnClickListener(v -> {
-            Calendar calendar = Calendar.getInstance();
-            new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            DatePickerDialog dp = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+                calendar.set(Calendar.YEAR, year);
+                calendar.set(Calendar.MONTH, month);
+                calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
                 etDueDate.setText(String.format(Locale.getDefault(), "%02d/%02d/%d", dayOfMonth, month + 1, year));
-            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+            // חסימת תאריכים שעברו (מינוס 1000 מילישניות לביטחון)
+            dp.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
+            dp.show();
         });
 
         etDueTime.setOnClickListener(v -> {
             new TimePickerDialog(this, (view, hourOfDay, minute) -> {
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                calendar.set(Calendar.MINUTE, minute);
                 etDueTime.setText(String.format(Locale.getDefault(), "%02d:%02d", hourOfDay, minute));
-            }, 12, 0, true).show();
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show();
         });
 
         btnSave.setOnClickListener(v -> updateMaintenance());
         btnDelete.setOnClickListener(v -> deleteMaintenance());
+
+        if (findViewById(R.id.btnBackEdit) != null) {
+            findViewById(R.id.btnBackEdit).setOnClickListener(v -> finish());
+        }
     }
 
     private void updateMaintenance() {
@@ -95,7 +111,13 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         String fullDateTime = date + " " + time;
         boolean isRecurringNow = swRecurring.isChecked();
 
+        if (title.isEmpty() || date.isEmpty() || time.isEmpty()) {
+            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         loader.setVisibility(View.VISIBLE);
+        btnSave.setEnabled(false);
         DocumentReference userRef = db.collection("users").document(userId);
 
         Maintenance updated = new Maintenance(title, etDescription.getText().toString().trim(), fullDateTime, isRecurringNow);
@@ -104,15 +126,24 @@ public class EditMaintenanceActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     userRef.update("maintenances", FieldValue.arrayUnion(updated))
                             .addOnSuccessListener(aVoid2 -> {
-                                setAlarm(title, updated.description, fullDateTime); // עדכון ההתראה
+                                setAlarm(title, updated.description, fullDateTime);
+                                Toast.makeText(this, "Updated successfully", Toast.LENGTH_SHORT).show();
                                 finish();
                             });
+                })
+                .addOnFailureListener(e -> {
+                    loader.setVisibility(View.GONE);
+                    btnSave.setEnabled(true);
+                    Toast.makeText(this, "Error updating: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
     private void deleteMaintenance() {
         db.collection("users").document(userId).update("maintenances", FieldValue.arrayRemove(originalMaintenance))
-                .addOnSuccessListener(aVoid -> finish());
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
     }
 
     @SuppressLint("ScheduleExactAlarm")
@@ -124,13 +155,17 @@ public class EditMaintenanceActivity extends AppCompatActivity {
 
             AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
             Intent intent = new Intent(this, NotificationReceiver.class);
-            intent.putExtra("title", "טיפול מעודכן: " + title);
+            intent.putExtra("title", "Car Maintenance: " + title);
             intent.putExtra("message", description);
 
             PendingIntent pendingIntent = PendingIntent.getBroadcast(this, (int) date.getTime(),
                     intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pendingIntent);
-        } catch (Exception e) { e.printStackTrace(); }
+            if (alarmManager != null) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pendingIntent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

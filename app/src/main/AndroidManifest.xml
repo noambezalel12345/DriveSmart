@@ -25,7 +25,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".AddMaintenance"
+            android:name=".AddMaintenanceActivity"
             android:exported="false" />
 
         <activity

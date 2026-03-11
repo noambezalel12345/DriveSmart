@@ -91,7 +91,7 @@ public class HomeActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        fabAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenance.class)));
+        fabAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenanceActivity.class)));
         btnDeleteSelected.setOnClickListener(v -> showDeleteOptionsDialog());
 
         loadMaintenanceFromFirestore();
