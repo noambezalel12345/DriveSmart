@@ -9,19 +9,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ProgressBar;
-import android.widget.Toast;
+import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.example.drivesmart.model.Maintenance;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -46,7 +41,6 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         userId = FirebaseAuth.getInstance().getUid();
 
-        // קישור IDs - וודא שהם תואמים ל-XML שלך
         etTitle = findViewById(R.id.etEditTitle);
         etDescription = findViewById(R.id.etEditDescription);
         etDueDate = findViewById(R.id.etEditDueDate);
@@ -56,13 +50,15 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.btnDeleteEdit);
         loader = findViewById(R.id.editLoader);
 
-        // קבלת נתונים מה-Intent
         String fullDateTime = getIntent().getStringExtra("DUE_DATE");
         String title = getIntent().getStringExtra("TITLE");
         String description = getIntent().getStringExtra("DESCRIPTION");
         boolean isRecurring = getIntent().getBooleanExtra("IS_RECURRING", false);
 
         originalMaintenance = new Maintenance(title, description, fullDateTime, isRecurring);
+
+        etTitle.setText(title);
+        etDescription.setText(description);
         swRecurring.setChecked(isRecurring);
 
         if (fullDateTime != null && fullDateTime.contains(" ")) {
@@ -71,10 +67,6 @@ public class EditMaintenanceActivity extends AppCompatActivity {
             etDueTime.setText(parts[1]);
         }
 
-        etTitle.setText(title);
-        etDescription.setText(description);
-
-        // בחירת תאריך עם חסימת עבר
         etDueDate.setOnClickListener(v -> {
             DatePickerDialog dp = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
                 calendar.set(Calendar.YEAR, year);
@@ -82,8 +74,6 @@ public class EditMaintenanceActivity extends AppCompatActivity {
                 calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
                 etDueDate.setText(String.format(Locale.getDefault(), "%02d/%02d/%d", dayOfMonth, month + 1, year));
             }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
-
-            // חסימת תאריכים שעברו (מינוס 1000 מילישניות לביטחון)
             dp.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
             dp.show();
         });
@@ -109,41 +99,26 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         String date = etDueDate.getText().toString().trim();
         String time = etDueTime.getText().toString().trim();
         String fullDateTime = date + " " + time;
-        boolean isRecurringNow = swRecurring.isChecked();
 
-        if (title.isEmpty() || date.isEmpty() || time.isEmpty()) {
-            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (title.isEmpty() || date.isEmpty() || time.isEmpty()) return;
 
         loader.setVisibility(View.VISIBLE);
-        btnSave.setEnabled(false);
         DocumentReference userRef = db.collection("users").document(userId);
-
-        Maintenance updated = new Maintenance(title, etDescription.getText().toString().trim(), fullDateTime, isRecurringNow);
+        Maintenance updated = new Maintenance(title, etDescription.getText().toString().trim(), fullDateTime, swRecurring.isChecked());
 
         userRef.update("maintenances", FieldValue.arrayRemove(originalMaintenance))
                 .addOnSuccessListener(aVoid -> {
                     userRef.update("maintenances", FieldValue.arrayUnion(updated))
                             .addOnSuccessListener(aVoid2 -> {
                                 setAlarm(title, updated.description, fullDateTime);
-                                Toast.makeText(this, "Updated successfully", Toast.LENGTH_SHORT).show();
                                 finish();
                             });
-                })
-                .addOnFailureListener(e -> {
-                    loader.setVisibility(View.GONE);
-                    btnSave.setEnabled(true);
-                    Toast.makeText(this, "Error updating: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
     private void deleteMaintenance() {
         db.collection("users").document(userId).update("maintenances", FieldValue.arrayRemove(originalMaintenance))
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show();
-                    finish();
-                });
+                .addOnSuccessListener(aVoid -> finish());
     }
 
     @SuppressLint("ScheduleExactAlarm")
@@ -151,21 +126,17 @@ public class EditMaintenanceActivity extends AppCompatActivity {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
             Date date = sdf.parse(dateTimeStr);
-            if (date == null) return;
+            if (date == null || date.getTime() <= System.currentTimeMillis()) return;
 
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
             Intent intent = new Intent(this, NotificationReceiver.class);
-            intent.putExtra("title", "Car Maintenance: " + title);
+            intent.putExtra("title", "טיפול מעודכן: " + title);
             intent.putExtra("message", description);
 
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(this, (int) date.getTime(),
-                    intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent pi = PendingIntent.getBroadcast(this, (int) date.getTime(), intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-            if (alarmManager != null) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pendingIntent);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            if (am != null) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pi);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }
