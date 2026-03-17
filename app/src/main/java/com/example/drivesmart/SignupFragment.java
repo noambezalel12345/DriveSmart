@@ -31,8 +31,14 @@ public class SignupFragment extends Fragment {
 
     private static final String[] CAR_MODELS = {
             "Toyota", "Hyundai", "Kia", "Mazda", "Skoda", "Mitsubishi", "Suzuki", "Tesla",
-            "Audi", "BMW", "Mercedes-Benz", "Ferrari", "Lamborghini", "BYD", "Geely"
-    }; // (הרשימה המלאה נמצאת בזיכרון שלך מקודם)
+            "Chevrolet", "Ford", "Volkswagen", "Renault", "Nissan", "Seat", "Peugeot", "Citroen",
+            "Audi", "BMW", "Mercedes-Benz", "Honda", "Volvo", "Subaru", "Lexus", "Jeep", "Fiat",
+            "Land Rover", "Jaguar", "Porsche", "Alfa Romeo", "Cupra", "MG", "BYD", "Geely", "Chery",
+            "Ferrari", "Lamborghini", "Maserati", "Bentley", "Aston Martin", "Rolls-Royce", "McLaren",
+            "Bugatti", "Lotus", "Genesis", "Cadillac", "Chrysler", "Dodge", "Ram", "Buick", "GMC",
+            "Lincoln", "Infiniti", "Acura", "Mini", "Smart", "Abarth", "Dacia", "Lancia", "Opel",
+            "NIO", "Rivian", "Lucid", "Zeekr", "Polestar", "VinFast", "Voyah", "Seres", "Skywell"
+    };
 
     @Nullable
     @Override
@@ -58,7 +64,11 @@ public class SignupFragment extends Fragment {
 
         etVehicleYear.setOnClickListener(v -> showYearPicker());
         btnSignup.setOnClickListener(v -> signupUser());
-        tvBackToLogin.setOnClickListener(v -> getActivity().onBackPressed());
+        tvBackToLogin.setOnClickListener(v -> {
+            if (getActivity() != null) {
+                getActivity().onBackPressed();
+            }
+        });
 
         return view;
     }
@@ -67,7 +77,7 @@ public class SignupFragment extends Fragment {
         int currentYear = Calendar.getInstance().get(Calendar.YEAR);
         final NumberPicker picker = new NumberPicker(getContext());
         picker.setMinValue(1950);
-        picker.setMaxValue(currentYear + 1);
+        picker.setMaxValue(currentYear);
         picker.setValue(currentYear);
         picker.setWrapSelectorWheel(true);
 
@@ -90,22 +100,50 @@ public class SignupFragment extends Fragment {
         String vModel = etVehicleModel.getText().toString().trim();
         String vYear = etVehicleYear.getText().toString().trim();
 
-        if (!pass.equals(confirm)) {
-            Toast.makeText(getContext(), "Passwords match error!", Toast.LENGTH_SHORT).show();
+        // בדיקת אימייל וסיסמה (לפחות 6 תווים)
+        if (email.isEmpty()) {
+            Toast.makeText(getContext(), "Please enter an email", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (pass.length() < 6) {
+            Toast.makeText(getContext(), "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // בדיקת אימות סיסמה
+        if (!pass.equals(confirm)) {
+            Toast.makeText(getContext(), "Passwords do not match!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // בדיקת מספר רכב (6-8 ספרות)
         if (!vNum.matches("\\d{6,8}")) {
-            Toast.makeText(getContext(), "Vehicle number: 6-8 digits only", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Vehicle number must be 6-8 digits", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // בדיקת דגם רכב
+        if (vModel.isEmpty()) {
+            Toast.makeText(getContext(), "Please select a vehicle model", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // בדיקת שנת רכב
+        if (vYear.isEmpty()) {
+            Toast.makeText(getContext(), "Please select vehicle year", Toast.LENGTH_SHORT).show();
             return;
         }
 
         progressBar.setVisibility(View.VISIBLE);
+        btnSignup.setEnabled(false); // חסימת הכפתור למניעת לחיצות כפולות
+
         mAuth.createUserWithEmailAndPassword(email, pass).addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 saveUserData(mAuth.getCurrentUser().getUid(), vNum, vModel, vYear);
             } else {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(getContext(), "Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                btnSignup.setEnabled(true);
+                Toast.makeText(getContext(), "Registration failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -117,9 +155,17 @@ public class SignupFragment extends Fragment {
         user.put("vehicleYear", vYear);
         user.put("maintenances", new ArrayList<>());
 
-        db.collection("users").document(uid).set(user).addOnSuccessListener(aVoid -> {
-            startActivity(new Intent(getActivity(), HomeActivity.class));
-            getActivity().finish();
-        });
+        db.collection("users").document(uid).set(user)
+                .addOnSuccessListener(aVoid -> {
+                    if (getActivity() != null) {
+                        startActivity(new Intent(getActivity(), HomeActivity.class));
+                        getActivity().finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    progressBar.setVisibility(View.GONE);
+                    btnSignup.setEnabled(true);
+                    Toast.makeText(getContext(), "Firestore Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 }
