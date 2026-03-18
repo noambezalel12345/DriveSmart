@@ -1,34 +1,25 @@
 package com.example.drivesmart;
 
-import android.Manifest;
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.example.drivesmart.model.Maintenance;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,8 +30,8 @@ public class HomeActivity extends AppCompatActivity {
     private MaintenanceAdapter adapter;
     private List<Maintenance> maintenanceList;
     private Button btnDeleteSelected;
-    private TextView tvNoMaintenance;
-    private View imgEmpty, tvAddMaintenanceHint;
+    private TextView tvNoMaintenance, tvAddMaintenanceHint;
+    private ImageView imgEmpty;
     private FirebaseFirestore db;
     private String userId;
 
@@ -49,26 +40,17 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        // בקשת הרשאות להתראות באנדרואיד 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
-            }
-        }
-
         db = FirebaseFirestore.getInstance();
         userId = FirebaseAuth.getInstance().getUid();
 
         recyclerView = findViewById(R.id.recyclerView);
         btnDeleteSelected = findViewById(R.id.btnDeleteSelected);
         tvNoMaintenance = findViewById(R.id.tvNoMaintenance);
-        imgEmpty = findViewById(R.id.imgEmpty);
         tvAddMaintenanceHint = findViewById(R.id.tvAddMaintenance);
+        imgEmpty = findViewById(R.id.imgEmpty);
         FloatingActionButton fabAdd = findViewById(R.id.fabAdd);
 
-        btnDeleteSelected.setVisibility(View.GONE);
         maintenanceList = new ArrayList<>();
-
         adapter = new MaintenanceAdapter(maintenanceList,
                 item -> {
                     Intent intent = new Intent(HomeActivity.this, EditMaintenanceActivity.class);
@@ -79,12 +61,8 @@ public class HomeActivity extends AppCompatActivity {
                     startActivity(intent);
                 },
                 count -> {
-                    if (count > 0) {
-                        btnDeleteSelected.setVisibility(View.VISIBLE);
-                        btnDeleteSelected.setText("מחק טיפולים שסומנו (" + count + ")");
-                    } else {
-                        btnDeleteSelected.setVisibility(View.GONE);
-                    }
+                    btnDeleteSelected.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+                    btnDeleteSelected.setText("מחק פריטים שסומנו (" + count + ")");
                 }
         );
 
@@ -92,12 +70,40 @@ public class HomeActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         fabAdd.setOnClickListener(v -> startActivity(new Intent(this, AddMaintenanceActivity.class)));
-        btnDeleteSelected.setOnClickListener(v -> showDeleteOptionsDialog());
+        btnDeleteSelected.setOnClickListener(v -> askDeleteMode());
 
         loadMaintenanceFromFirestore();
     }
 
-    private void showDeleteOptionsDialog() {
+    private void loadMaintenanceFromFirestore() {
+        if (userId == null) return;
+        db.collection("users").document(userId).addSnapshotListener((snapshot, e) -> {
+            if (snapshot != null && snapshot.exists()) {
+                maintenanceList.clear();
+                List<Map<String, Object>> rawList = (List<Map<String, Object>>) snapshot.get("maintenances");
+                if (rawList != null && !rawList.isEmpty()) {
+                    for (Map<String, Object> data : rawList) {
+                        maintenanceList.add(new Maintenance(
+                                (String) data.get("title"),
+                                (String) data.get("description"),
+                                (String) data.get("dueDate"),
+                                data.get("isRecurring") != null && (boolean) data.get("isRecurring")
+                        ));
+                    }
+                    tvNoMaintenance.setVisibility(View.GONE);
+                    imgEmpty.setVisibility(View.GONE);
+                    tvAddMaintenanceHint.setVisibility(View.GONE);
+                } else {
+                    tvNoMaintenance.setVisibility(View.VISIBLE);
+                    imgEmpty.setVisibility(View.VISIBLE);
+                    tvAddMaintenanceHint.setVisibility(View.VISIBLE);
+                }
+                adapter.notifyDataSetChanged();
+            }
+        });
+    }
+
+    private void askDeleteMode() {
         List<Maintenance> selected = adapter.getSelectedItems();
         boolean hasRecurring = false;
         for (Maintenance m : selected) {
@@ -107,121 +113,51 @@ public class HomeActivity extends AppCompatActivity {
             }
         }
 
-        if (!hasRecurring) {
+        if (hasRecurring) {
             new AlertDialog.Builder(this)
-                    .setTitle("מחיקת טיפולים")
-                    .setMessage("האם למחוק את הטיפולים שנבחרו?")
-                    .setPositiveButton("מחק", (d, w) -> handleDeletion(false))
+                    .setTitle("מחיקת פריטים")
+                    .setMessage("חלק מהפריטים הם מחזוריים. האם למחוק אותם לגמרי או לחדש לשנה הבאה?")
+                    .setPositiveButton("חדש מחזוריים", (dialog, which) -> processSelection(true))
+                    .setNegativeButton("מחק הכל", (dialog, which) -> processSelection(false))
+                    .setNeutralButton("ביטול", null).show();
+        } else {
+            new AlertDialog.Builder(this)
+                    .setTitle("מחיקה")
+                    .setMessage("האם למחוק את הפריטים שנבחרו?")
+                    .setPositiveButton("מחק", (dialog, which) -> processSelection(false))
                     .setNegativeButton("ביטול", null).show();
-            return;
+        }
+    }
+
+    private void processSelection(boolean renewRecurring) {
+        List<Maintenance> selected = adapter.getSelectedItems();
+        List<Maintenance> toRemove = new ArrayList<>();
+        List<Maintenance> toAdd = new ArrayList<>();
+
+        for (Maintenance m : selected) {
+            toRemove.add(m);
+            if (renewRecurring && m.isRecurring) {
+                toAdd.add(new Maintenance(m.title, m.description, calculateNextYear(m.dueDate), true));
+            }
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("סיום טיפול")
-                .setMessage("חלק מהטיפולים הם מחזוריים. האם תרצה לחדש אותם לשנה הבאה או למחוק לגמרי?")
-                .setPositiveButton("חדש לשנה הבאה", (d, w) -> handleDeletion(true))
-                .setNegativeButton("מחק לגמרי", (d, w) -> handleDeletion(false))
-                .setNeutralButton("ביטול", null).show();
-    }
-
-    private void handleDeletion(boolean shouldRenew) {
-        final List<Maintenance> selected = new ArrayList<>(adapter.getSelectedItems());
-        final DocumentReference userRef = db.collection("users").document(userId);
-
-        userRef.get().addOnSuccessListener(documentSnapshot -> {
-            if (documentSnapshot.exists()) {
-                List<Map<String, Object>> allRemotes = (List<Map<String, Object>>) documentSnapshot.get("maintenances");
-                if (allRemotes == null) return;
-
-                List<Map<String, Object>> toRemove = new ArrayList<>();
-                List<Map<String, Object>> toAdd = new ArrayList<>();
-
-                for (Maintenance sel : selected) {
-                    for (Map<String, Object> rem : allRemotes) {
-                        if (sel.title.equals(rem.get("title")) && sel.dueDate.equals(rem.get("dueDate"))) {
-                            toRemove.add(rem);
-                            if (shouldRenew && sel.isRecurring) {
-                                String nextDate = calculateNextYear(sel.dueDate);
-                                Map<String, Object> nextM = new HashMap<>();
-                                nextM.put("title", sel.title);
-                                nextM.put("description", sel.description);
-                                nextM.put("dueDate", nextDate);
-                                nextM.put("isRecurring", true);
-                                toAdd.add(nextM);
-
-                                // קביעת התראה לשנה הבאה
-                                setAlarm(sel.title, sel.description, nextDate);
-                            }
-                            break;
-                        }
+        db.collection("users").document(userId).update("maintenances", FieldValue.arrayRemove(toRemove.toArray()))
+                .addOnSuccessListener(aVoid -> {
+                    if (!toAdd.isEmpty()) {
+                        db.collection("users").document(userId).update("maintenances", FieldValue.arrayUnion(toAdd.toArray()));
                     }
-                }
-
-                userRef.update("maintenances", FieldValue.arrayRemove(toRemove.toArray()))
-                        .addOnSuccessListener(aVoid -> {
-                            if (!toAdd.isEmpty()) {
-                                userRef.update("maintenances", FieldValue.arrayUnion(toAdd.toArray()));
-                            }
-                            adapter.getSelectedItems().clear();
-                            btnDeleteSelected.setVisibility(View.GONE);
-                            Toast.makeText(HomeActivity.this, "הפעולה בוצעה בהצלחה", Toast.LENGTH_SHORT).show();
-                        });
-            }
-        });
-    }
-
-    private void setAlarm(String title, String description, String dateTimeStr) {
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
-            Date date = sdf.parse(dateTimeStr);
-            if (date == null || date.getTime() <= System.currentTimeMillis()) return;
-
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            Intent intent = new Intent(this, NotificationReceiver.class);
-            intent.putExtra("title", "תזכורת לטיפול: " + title);
-            intent.putExtra("message", description);
-
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(this, (int) date.getTime(),
-                    intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.getTime(), pendingIntent);
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    private void loadMaintenanceFromFirestore() {
-        if (userId == null) return;
-        db.collection("users").document(userId).addSnapshotListener((snapshot, e) -> {
-            if (snapshot != null && snapshot.exists()) {
-                maintenanceList.clear();
-                List<Map<String, Object>> rawList = (List<Map<String, Object>>) snapshot.get("maintenances");
-                if (rawList != null) {
-                    for (Map<String, Object> data : rawList) {
-                        maintenanceList.add(new Maintenance(
-                                (String) data.get("title"), (String) data.get("description"),
-                                (String) data.get("dueDate"), data.get("isRecurring") != null && (boolean) data.get("isRecurring")
-                        ));
-                    }
-                }
-                adapter.notifyDataSetChanged();
-                updateEmptyStateUI();
-            }
-        });
-    }
-
-    private void updateEmptyStateUI() {
-        boolean isEmpty = maintenanceList.isEmpty();
-        tvNoMaintenance.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-        if (imgEmpty != null) imgEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-        if (tvAddMaintenanceHint != null) tvAddMaintenanceHint.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+                    adapter.clearSelections();
+                    Toast.makeText(this, "הפעולה הושלמה", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private String calculateNextYear(String dateStr) {
         try {
-            String pureDate = dateStr.contains(" ") ? dateStr.split(" ")[0] : dateStr;
-            String timePart = dateStr.contains(" ") ? " " + dateStr.split(" ")[1] : "";
-            String[] parts = pureDate.split("/");
-            int year = Integer.parseInt(parts[2]) + 1;
-            return String.format(Locale.getDefault(), "%s/%s/%d%s", parts[0], parts[1], year, timePart);
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(sdf.parse(dateStr));
+            cal.add(Calendar.YEAR, 1);
+            return sdf.format(cal.getTime());
         } catch (Exception e) { return dateStr; }
     }
 }

@@ -16,6 +16,7 @@ import java.util.List;
 public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.MaintenanceViewHolder> {
 
     private final List<Maintenance> list;
+    // נשאר עם ArrayList כי זה מה ש-Firestore מקבל בקלות למחיקה
     private final List<Maintenance> selectedItems = new ArrayList<>();
     private final OnItemClickListener listener;
     private final OnSelectionChangeListener selectionListener;
@@ -29,7 +30,19 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
         this.selectionListener = selectionListener;
     }
 
-    public List<Maintenance> getSelectedItems() { return selectedItems; }
+    // פונקציה להחזרת הפריטים שנבחרו
+    public List<Maintenance> getSelectedItems() {
+        return new ArrayList<>(selectedItems);
+    }
+
+    // *** תיקון: פונקציה לניקוי הסימונים (הצ'קבוקסים) אחרי מחיקה ***
+    public void clearSelections() {
+        selectedItems.clear();
+        notifyDataSetChanged();
+        if (selectionListener != null) {
+            selectionListener.onSelectionChanged(0);
+        }
+    }
 
     @NonNull
     @Override
@@ -45,16 +58,22 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
         holder.tvTitle.setText(m.title);
         holder.tvDate.setText(m.dueDate);
 
+        // מניעת באג של מיחזור תצוגה: מבטלים מאזין קיים לפני קביעת מצב הצ'קבוקס
         holder.cbDone.setOnCheckedChangeListener(null);
         holder.cbDone.setChecked(selectedItems.contains(m));
 
         holder.cbDone.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                if (!selectedItems.contains(m)) selectedItems.add(m);
+                if (!selectedItems.contains(m)) {
+                    selectedItems.add(m);
+                }
             } else {
                 selectedItems.remove(m);
             }
-            if (selectionListener != null) selectionListener.onSelectionChanged(selectedItems.size());
+
+            if (selectionListener != null) {
+                selectionListener.onSelectionChanged(selectedItems.size());
+            }
         });
 
         holder.itemView.setOnClickListener(v -> listener.onItemClick(m));

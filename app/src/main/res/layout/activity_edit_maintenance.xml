@@ -31,7 +31,7 @@
     <EditText
         android:id="@+id/etEditDescription"
         android:layout_width="match_parent"
-        android:layout_height="80dp"
+        android:layout_height="120dp"
         android:hint="Description"
         android:gravity="top"
         android:background="@android:drawable/edit_text"
@@ -73,49 +73,38 @@
         android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/etEditDueTime" />
 
-    <ProgressBar
-        android:id="@+id/editLoader"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/swEditRecurring"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        android:orientation="horizontal"
+        android:weightSum="3"
+        app:layout_constraintBottom_toBottomOf="parent">
 
-    <Button
-        android:id="@+id/btnSaveEdit"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:text="SAVE"
-        android:backgroundTint="#3A4FA3"
-        android:textColor="@android:color/white"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btnDeleteEdit"
-        android:layout_marginEnd="8dp" />
+        <ImageButton
+            android:id="@+id/btnBackEdit"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="0.6"
+            android:src="@android:drawable/ic_media_previous"
+            android:backgroundTint="#1C355E"
+            app:tint="@android:color/white" />
 
-    <Button
-        android:id="@+id/btnDeleteEdit"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:text="DELETE"
-        android:backgroundTint="#D32F2F"
-        android:textColor="@android:color/white"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/btnSaveEdit"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginStart="8dp" />
+        <Button
+            android:id="@+id/btnSaveEdit"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1.2"
+            android:text="SAVE"
+            android:layout_marginHorizontal="4dp"
+            android:backgroundTint="#3A4FA3" />
 
-    <ImageButton
-        android:id="@+id/btnBackEdit"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Back"
-        android:src="@android:drawable/ic_media_previous"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginBottom="8dp"
-        app:tint="#1C355E"/>
+        <Button
+            android:id="@+id/btnDeleteEdit"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1.2"
+            android:text="DELETE"
+            android:backgroundTint="#D32F2F" />
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
