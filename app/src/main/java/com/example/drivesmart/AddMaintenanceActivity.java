@@ -64,7 +64,6 @@ public class AddMaintenanceActivity extends AppCompatActivity {
             dp.getDatePicker().setMinDate(System.currentTimeMillis()); // חסימת תאריכים שעברו
             dp.show();
         });
-
         // בחירת שעה - חסימת שעה שעברה היום
         etDueTime.setOnClickListener(v -> {
             if (etDueDate.getText().toString().isEmpty()) {

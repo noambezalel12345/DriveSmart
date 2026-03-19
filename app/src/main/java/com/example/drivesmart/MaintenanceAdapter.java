@@ -20,21 +20,17 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
     private final List<Maintenance> selectedItems = new ArrayList<>();
     private final OnItemClickListener listener;
     private final OnSelectionChangeListener selectionListener;
-
     public interface OnItemClickListener { void onItemClick(Maintenance m); }
     public interface OnSelectionChangeListener { void onSelectionChanged(int count); }
-
     public MaintenanceAdapter(List<Maintenance> list, OnItemClickListener listener, OnSelectionChangeListener selectionListener) {
         this.list = list;
         this.listener = listener;
         this.selectionListener = selectionListener;
     }
-
     // פונקציה להחזרת הפריטים שנבחרו
     public List<Maintenance> getSelectedItems() {
         return new ArrayList<>(selectedItems);
     }
-
     // *** תיקון: פונקציה לניקוי הסימונים (הצ'קבוקסים) אחרי מחיקה ***
     public void clearSelections() {
         selectedItems.clear();
@@ -43,25 +39,21 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
             selectionListener.onSelectionChanged(0);
         }
     }
-
     @NonNull
     @Override
     public MaintenanceViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_maintenance, parent, false);
         return new MaintenanceViewHolder(view);
     }
-
     @Override
     public void onBindViewHolder(@NonNull MaintenanceViewHolder holder, int position) {
         Maintenance m = list.get(position);
         holder.tvNumber.setText(String.valueOf(position + 1));
         holder.tvTitle.setText(m.title);
         holder.tvDate.setText(m.dueDate);
-
         // מניעת באג של מיחזור תצוגה: מבטלים מאזין קיים לפני קביעת מצב הצ'קבוקס
         holder.cbDone.setOnCheckedChangeListener(null);
         holder.cbDone.setChecked(selectedItems.contains(m));
-
         holder.cbDone.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 if (!selectedItems.contains(m)) {
@@ -70,18 +62,14 @@ public class MaintenanceAdapter extends RecyclerView.Adapter<MaintenanceAdapter.
             } else {
                 selectedItems.remove(m);
             }
-
             if (selectionListener != null) {
                 selectionListener.onSelectionChanged(selectedItems.size());
             }
         });
-
         holder.itemView.setOnClickListener(v -> listener.onItemClick(m));
     }
-
     @Override
     public int getItemCount() { return list.size(); }
-
     static class MaintenanceViewHolder extends RecyclerView.ViewHolder {
         TextView tvNumber, tvTitle, tvDate;
         CheckBox cbDone;
