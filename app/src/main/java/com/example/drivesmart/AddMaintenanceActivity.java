@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.*;
@@ -133,18 +134,28 @@ public class AddMaintenanceActivity extends AppCompatActivity {
     @SuppressLint("ScheduleExactAlarm")
     private void setAlarm(String title, long triggerTime) {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+
         Intent intent = new Intent(this, NotificationReceiver.class);
         intent.putExtra("title", "DriveSmart Reminder");
-        intent.putExtra("message", "Time for: " + title);
-        intent.putExtra("triggerTime",  triggerTime);
+        intent.putExtra("message", "הגיע הזמן לטיפול: " + title);
+        intent.putExtra("triggerTime", triggerTime);
 
-        int requestCode = (int) (triggerTime / 1000); // מזהה ייחודי מבוסס זמן
+        // יצירת RequestCode ייחודי (למשל לפי השניות של התאריך)
+        int requestCode = (int) (triggerTime % 100000);
+
+        // השתמשנו ב-FLAG_CANCEL_CURRENT כדי שאם יש התראה ישנה "תקועה" במערכת, היא תתבטל מיד
         PendingIntent pi = PendingIntent.getBroadcast(this, requestCode, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        if (am != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (am.canScheduleExactAlarms()) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pi);
+            } else {
+                am.set(AlarmManager.RTC_WAKEUP, triggerTime, pi);
+            }
+        } else {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pi);
         }
-
     }
 }
